@@ -1,0 +1,110 @@
+1. Importing required Libraries
+
+from bs4 import BeautifulSoup
+import requests
+import pandas as pd
+import numpy as np
+
+2. Defining Functions to transform the data
+
+2.1 Function to extract Product Title
+
+def get_title(soup):
+try:
+# Outer Tag Object
+title = soup.find("span", attrs={"id":'productTitle'})
+# Inner NavigatableString Object
+title_value = title.text
+# Title as a string value
+title_string = title_value.strip()
+except AttributeError:
+title_string = ""
+return title_string
+
+2.2 Function to extract Product Price
+
+def get_price(soup):
+try:
+price = soup.find("span", attrs={'id':'a-price aok-align-center reinventPricePriceToPayMargin priceToPay'}).string.strip()
+except AttributeError:
+try:
+# If there is some deal price
+price = soup.find("span", attrs={'id':'a-size-large a-color-price savingPriceOverride aok-align-center reinventPriceSavingsPercentageMargin savingsPercentage'}).string.strip()
+except:
+price = ""
+return price
+
+
+2.3 Function to extract Product Rating
+def get_rating(soup):
+try:
+rating = soup.find("i", attrs={'class':'a-icon a-icon-star a-star-4-5'}).string.strip()
+except AttributeError:
+try:
+rating = soup.find("span", attrs={'class':'a-icon-alt'}).string.strip()
+except:
+rating = ""
+return rating
+
+
+2.4 Function to extract Number of User Reviews
+def get_review_count(soup):
+try:
+review_count = soup.find("span", attrs={'id':'acrCustomerReviewText'}).string.strip()
+except AttributeError:
+review_count = ""
+return review_count
+
+
+2.5 Function to extract Availability Status
+
+def get_availability(soup):
+try:
+available = soup.find("div", attrs={'id':'availability'})
+available = available.find("span").string.strip()
+except AttributeError:
+available = "Not Available"
+return available
+
+
+3. Rearrange the data into CSV Format
+
+if __name__ == '__main__':
+# to tell the website that we are not a bot we need to pass headers (using user-agent)
+HEADERS = {
+"User-Agent": "your user agent",
+"Accept-Language": "en-US, en;q=0.5",
+}
+# url from searching "playstation 5" in amazon.in
+URL = "https://www.amazon.in/s?k=playstation+5&crid=3P5HNQ43SNCIU&sprefix=playstation+5%2Caps%2C233&ref=nb_sb_noss_1"
+# making HTTP request to the website
+webpage = requests.get(URL, headers=HEADERS, timeout=10)
+# Soup Object containing all data
+soup = BeautifulSoup(webpage.content, "html.parser")
+# Fetch links as List of Tag Objects
+links = soup.find_all("a", attrs={'class':'a-link-normal s-underline-text s-underline-link-text s-link-style a-text-normal'})
+# Store the links
+links_list = []
+# Loop for extracting links from Tag Objects
+for link in links:
+links_list.append(link.get('href'))
+d = {"title":[], "price":[], "rating":[], "reviews":[],"availability":[]}
+# Loop for extracting product details from each link
+for link in links_list:
+new_webpage = requests.get("https://www.amazon.in" + link, headers=HEADERS)
+new_soup = BeautifulSoup(new_webpage.content, "html.parser")
+# Function calls to display all necessary product information
+d['title'].append(get_title(new_soup))
+d['price'].append(get_price(new_soup))
+d['rating'].append(get_rating(new_soup))
+d['reviews'].append(get_review_count(new_soup))
+d['availability'].append(get_availability(new_soup))
+# Now we will export the data into "Amazon Data.csv" file
+amazon_df = pd.DataFrame.from_dict(d)
+amazon_df['title'].replace('', np.nan, inplace=True)
+amazon_df = amazon_df.dropna(subset=['title'])
+amazon_df.to_csv("Amazon Data.csv", header=True, index=False)
+
+
+4. View the saved Data Frame
+amazon_df
